@@ -226,6 +226,7 @@ void loop() {
   checkPedalInputs();
   // If gear is changed, communicate with 2 channel relay.
   changeGear();
+  changeReverse();
   // Reading button presses for screen changes
   updateScreen();
   // Update BMS
