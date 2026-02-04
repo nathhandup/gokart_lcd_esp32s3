@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <daly-bms-uart.h>
 
 // Display resolution
 #define SCREEN_WIDTH 128 // adjust if your display is 128x64, 128x32, or 240x240
@@ -157,31 +158,10 @@ void checkPedalInputs() {
         gearChange = true;
         currentGear++;
       }
-
-void loop() {
-
-  // Reading for pedal presses for gear change.
-  // NOTE: must be changed to account for reverse direction
-  if (digitalRead(RIGHT_PEDAL_PIN) == LOW){
-    if (currentGear < 3 && !reverse){
-      gearChange = true;
-      currentGear++;
-    }
-    if (currentGear < 3 && !reverse){
-      gearChange = true;
-      currentGear++;
-    }
-  } else if (digitalRead(LEFT_PEDAL_PIN) == LOW) {
-    if (currentGear > 1){
-      gearChange = true;
-      currentGear--;
-    }
-  } else if (digitalRead(RIGHT_BUTTON_PIN == LOW)) {
-    if(currentScreen < 3) {
-      currentScreen += 1;
     }
   }
 }
+
 
 // Checks if gear must be updated, and communicates to relay accordingly.
 void changeGear() {
