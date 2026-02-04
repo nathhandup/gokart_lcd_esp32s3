@@ -2,6 +2,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <daly-bms-uart.h>
+#include <string.h>
 
 // Display resolution
 #define SCREEN_WIDTH 128 // adjust if your display is 128x64, 128x32, or 240x240
@@ -29,12 +30,17 @@
 #define RIGHT_THREE_SPEED_IN4_YELLOW 24
 #define LEFT_REVERSE_IN5_BROWN 26
 #define RIGHT_REVERSE_IN6_BROWN 29
-#define HALL_EFFECT 27
-#define REVERSE_LEFT_MOTOR -1
-#define REVERSE_RIGHT_MOTOR -1
+#define HALL_EFFECT 27 //unused
+#define REVERSE_LEFT_MOTOR -1 //configure!!
+#define REVERSE_RIGHT_MOTOR -1 //configure!!
+
+#define BMS_SERIAL Serial1
 
 // Create display object
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// Create Daly BMS object
+Daly_BMS_UART bms(BMS_SERIAL);
 
 // Booleans
 bool reverseUpdate = false; //signifies update in reversal of gokart
@@ -46,18 +52,14 @@ int currentScreen = 1; // value from 0-1
 int currentSpeed = 0; // This will be replaced with actual speed from ESC later
 int currentGear = 2; // values from 0-2 according to gearInfo typedef
 
-//typedef for gear
-
-typedef enum {
-  LOW,
-  MEDIUM,
-  HIGH,
-  NUM_OF_GEARS,
-} gearInfo;
 
 void setup() {
   // Initialize I2C
   Wire.begin(SDA_PIN, SCL_PIN);
+
+  // Initialize serial & bms
+  Serial.begin(9600);
+  bms.Init();
 
   // Initialize display
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // 0x3C is the common I2C address
@@ -133,12 +135,12 @@ void wipeScreen() {
 void checkPedalInputs() {
   // Reading for pedal presses for gear change + changing reversal of direction
   if(!reverse) {
-    if (digitalRead(RIGHT_PEDAL_PIN) == LOW){
+    if (digitalRead(RIGHT_PEDAL_PIN) == 0){
       if (currentGear < 3){
         gearChange = true;
         currentGear++;
       }
-    } else if (digitalRead(LEFT_PEDAL_PIN) == LOW) {
+    } else if (digitalRead(LEFT_PEDAL_PIN) == 0) {
       if (currentGear > 1){
         gearChange = true;
         currentGear--;
@@ -148,7 +150,7 @@ void checkPedalInputs() {
       }
     } 
   } else if (reverse) {
-    if (digitalRead(RIGHT_PEDAL_PIN) == LOW){
+    if (digitalRead(RIGHT_PEDAL_PIN) == 0){
       if (currentGear > 1){
         gearChange = true;
         currentGear--;
@@ -156,7 +158,7 @@ void checkPedalInputs() {
         reverseUpdate = true;
         reverse = true;
       }
-    } else if (digitalRead(LEFT_PEDAL_PIN) == LOW) {
+    } else if (digitalRead(LEFT_PEDAL_PIN) == 0) {
       if (currentGear < 3){
         gearChange = true;
         currentGear++;
@@ -169,22 +171,23 @@ void checkPedalInputs() {
 // Checks if gear must be updated, and communicates to relay accordingly.
 void changeGear() {
   if(gearChange){
-    if(gear == HIGH) { 
+    if(currentGear == 2) { 
       digitalWrite(LEFT_THREE_SPEED_IN1_BLUE, LOW);
       digitalWrite(LEFT_THREE_SPEED_IN2_YELLOW, LOW);
-      digitalWrite(RIGHT_THREE_SPEED_IN1_BLUE, LOW);
-      digitalWrite(RIGHT_THREE_SPEED_IN2_YELLOW, LOW);
-    } else if(gear == MEDIUM)  {
+      digitalWrite(RIGHT_THREE_SPEED_IN3_BLUE, LOW);
+      digitalWrite(RIGHT_THREE_SPEED_IN4_YELLOW, LOW);
+    } else if(currentGear == 1)  {
       digitalWrite(LEFT_THREE_SPEED_IN1_BLUE, HIGH);
       digitalWrite(LEFT_THREE_SPEED_IN2_YELLOW, LOW);
-      digitalWrite(RIGHT_THREE_SPEED_IN1_BLUE, HIGH);
-      digitalWrite(RIGHT_THREE_SPEED_IN2_YELLOW, LOW);
-    } else if(gear == LOW) {
+      digitalWrite(RIGHT_THREE_SPEED_IN3_BLUE, HIGH);
+      digitalWrite(RIGHT_THREE_SPEED_IN4_YELLOW, LOW);
+    } else if(currentGear == 0) {
       digitalWrite(LEFT_THREE_SPEED_IN1_BLUE, LOW);
       digitalWrite(LEFT_THREE_SPEED_IN2_YELLOW, HIGH);
-      digitalWrite(RIGHT_THREE_SPEED_IN1_BLUE, LOW);
-      digitalWrite(RIGHT_THREE_SPEED_IN2_YELLOW, HIGH);
+      digitalWrite(RIGHT_THREE_SPEED_IN3_BLUE, LOW);
+      digitalWrite(RIGHT_THREE_SPEED_IN4_YELLOW, HIGH);
     }
+  }
 }
 
 // Reads button press inputs and updates currentScreen variable
@@ -200,14 +203,15 @@ void updateScreen() {
   } 
 }
 
+/*
 void loop() {
   // Check Pedal Inputs
   checkPedalInputs();
   // If gear is changed, communicate with 2 channel relay.
   changeGear();
-  //Reading button presses for screen changes
+  // Reading button presses for screen changes
   updateScreen();
-
+  // Update BMS
   if(currentScreen == 0) {
     //display something
   } else if(currentScreen == 1) {
@@ -217,4 +221,29 @@ void loop() {
     displayGear();
   }
   delay(100);
+}
+*/
+
+//temporary loop for testing BMS values
+void loop() {
+  
+  Serial.println("Press any key and hit enter to query data from the BMS...");
+  while(Serial.available() == 0)
+  {
+  }
+  Serial.read(); // discard character
+  Serial.read(); //discard new line
+  bms.update();
+
+  Serial.println("Basic BMS Data:              " + (String)bms.get.packVoltage + "V " + (String)bms.get.packCurrent + "I " + (String)bms.get.packSOC + "\% ");
+  Serial.println("Package Temperature (C):     " + (String)bms.get.tempAverage);
+  Serial.println("Highest Cell Voltage:        #" + (String)bms.get.maxCellVNum + " with voltage " + (String)(bms.get.maxCellmV / 1000));
+  Serial.println("Lowest Cell Voltage:         #" + (String)bms.get.minCellVNum + " with voltage " + (String)(bms.get.minCellmV / 1000));
+  Serial.println("Number of Cells:             " + (String)bms.get.numberOfCells);
+  Serial.println("Number of Temp Sensors:      " + (String)bms.get.numOfTempSensors);
+  Serial.println("BMS Chrg / Dischrg Cycles:   " + (String)bms.get.bmsCycles);
+  Serial.println("BMS Heartbeat:               " + (String)bms.get.bmsHeartBeat); // cycle 0-255
+  Serial.println("Discharge MOSFet Status:     " + (String)bms.get.disChargeFetState);
+  Serial.println("Charge MOSFet Status:        " + (String)bms.get.chargeFetState);
+  Serial.println("Remaining Capacity mAh:      " + (String)bms.get.resCapacitymAh);
 }
