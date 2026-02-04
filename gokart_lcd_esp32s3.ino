@@ -30,13 +30,14 @@
 // Create display object
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-// Constants
-bool gearChange = true;
+// Booleans
+bool gearChange = false;
+bool reverse = false;
 
 // Variables
-int currentScreen = 2; // value from 1-3
+int currentScreen = 1; // value from 0-1
 int currentSpeed = 0; // This will be replaced with actual speed from ESC later
-int currentGear = 0; // values from 0-2 according to gearInfo typedef
+int currentGear = 2; // values from 0-2 according to gearInfo typedef
 
 //typedef for gear
 
@@ -125,7 +126,11 @@ void loop() {
   // Reading for pedal presses for gear change.
   // NOTE: must be changed to account for reverse direction
   if (digitalRead(RIGHT_PEDAL_PIN) == LOW){
-    if (currentGear < 3){
+    if (currentGear < 3 && !reverse){
+      gearChange = true;
+      currentGear++;
+    }
+    if (currentGear < 3 && !reverse){
       gearChange = true;
       currentGear++;
     }
@@ -166,20 +171,19 @@ void loop() {
       currentScreen -= 1;
     }
   } else if (digitalRead(RIGHT_BUTTON_PIN == LOW)) {
-    if(currentScreen < 3) {
+    if(currentScreen < 1) {
       currentScreen += 1;
     }
   } 
 
-  if(currentScreen == 1) {
+  if(currentScreen == 0) {
     //display something
-  } else if(currentScreen == 2) {
+  } else if(currentScreen == 1) {
     //displays gear
     wipeScreen();
     updateGear();
     displayGear();
-  } else if(currentScreen == 3) {
-    //display something
   }
-  delay(200);
+  gearChange = false;
+  delay(100);
 }
